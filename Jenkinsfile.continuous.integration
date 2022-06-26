@@ -1,0 +1,115 @@
+pipeline {
+
+    agent any
+
+    environment {
+
+        name = 'jennhollis/springio'
+
+        tag = 'latest'
+
+        deploy = false
+
+    }
+
+    stages {
+
+        stage('GitHub Checkout') {
+
+            steps {
+
+                git branch: 'main', url: 'https://github.com/xhollisx/devops-cicd'
+
+            }
+
+        }
+
+        stage('Execute Maven Package (Build and Test Steps Included)') {
+
+            steps {
+
+                sh 'mvn -f ./springboot/pom.xml clean package'
+
+            }
+
+            post {
+
+                success {
+
+                    script {
+
+                        env.deploy = true
+
+                    }
+
+                }
+
+                failure {
+
+                    echo "[ERROR] Build error occured!"
+
+                }
+
+            }
+
+        }
+
+        stage('Docker Build and Tag') {
+
+            when {
+
+                expression {
+
+                    return env.deploy
+
+                }
+
+            }
+
+            steps {
+
+                sh 'docker build -t ${name}:${tag} -f ./springboot/Dockerfile .'
+
+            }
+
+        }
+
+        stage('Publish image to Docker Hub') {
+
+            when {
+
+                expression {
+
+                    return env.deploy
+
+                }
+
+            }
+
+            steps {
+
+                sh 'docker push ${name}:${tag}'
+
+            }
+
+        }
+
+    }
+
+    post {
+
+        success {
+
+            sh "docker rmi -f ${name}:${tag}"
+
+        }
+
+        failure {
+
+            sh "docker rmi -f ${name}:${tag}"
+
+        }
+
+    }
+
+}
